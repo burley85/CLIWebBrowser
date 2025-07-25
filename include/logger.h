@@ -3,13 +3,25 @@
 
 #include <stdio.h>
 
+#define LOG_NONE   0
+#define LOG_DEBUG   1
+#define LOG_WARNING 2
+#define LOG_ERROR   3
+
 struct logger {
-    FILE* debug;
-    FILE* warning;
-    FILE* error;
+    union {
+        struct {
+            FILE* debug;
+            FILE* warning;
+            FILE* error;
+        };
+        FILE* files[3];
+    };
 } logger;
 
 int init_logger(char* debug_file, char* warning_file, char* error_file);
+int logf(int level, const char* format, ...);
+
 int debugf(const char* format, ...);
 int warningf(const char* format, ...);
 int errorf(const char* format, ...);
