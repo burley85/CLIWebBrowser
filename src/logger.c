@@ -4,6 +4,17 @@
 
 #include "logger.h"
 
+struct logger {
+    union {
+        struct {
+            FILE* debug;
+            FILE* warning;
+            FILE* error;
+        };
+        FILE* files[3];
+    };
+} logger;
+
 int init_logger(char* debug_file, char* warning_file, char* error_file) {
     memset(&logger, 0, sizeof(struct logger));
 
@@ -50,7 +61,7 @@ char* log_prefix(int level) {
     }
 }
 
-int logf(int level, const char* format, ...) {
+int logmsgf(int level, const char* format, ...) {
     FILE* file = NULL;
 
     switch (level) {

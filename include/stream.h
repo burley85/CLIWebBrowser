@@ -1,7 +1,9 @@
 #ifndef STREAM_H
 #define STREAM_H
 
-void init_stream(struct stream* s, char* data);
+struct stream;
+
+struct stream* init_stream(char* data);
 int strm_length(struct stream* s);
 char strm_peek(struct stream* s);
 int strm_peek_n(struct stream* s, int n, char* buffer);

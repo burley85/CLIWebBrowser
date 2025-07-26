@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
 
 #include "logger.h"
 #include "stream.h"
@@ -11,11 +13,19 @@ struct stream {
     int length;
 };
 
-void init_stream(struct stream* s, char* data) {
+struct stream* init_stream(char* data) {
+    struct stream* s = malloc(sizeof(struct stream));
+    if (!s) {
+        errorf("Failed to allocate memory for stream\n");
+        return NULL;
+    }
+    
     s->start = data;
     s->pos = data;
     s->full_length = strlen(data);
     s->length = s->full_length;
+
+    return s;
 }
 
 int strm_length(struct stream* s) {
@@ -57,7 +67,7 @@ int strm_match(struct stream* s, char* match) {
 int strm_expect(struct stream* s, char* expected, int log_level) { 
     if(strm_match(s, expected)) return 1;
     else
-        logf(log_level, "Expected '%s' but found '%.*s'\n", expected, strlen(expected), s->pos);
+        logmsgf(log_level, "Expected '%s' but found '%.*s'\n", expected, strlen(expected), s->pos);
     return 0;
 }
 
