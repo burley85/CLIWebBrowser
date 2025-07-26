@@ -4,6 +4,13 @@
 #include "logger.h"
 #include "stream.h"
 
+struct stream {
+    char* start;
+    char* pos;
+    int full_length;
+    int length;
+};
+
 void init_stream(struct stream* s, char* data) {
     s->start = data;
     s->pos = data;
@@ -16,8 +23,15 @@ int strm_length(struct stream* s) {
 }
 
 char strm_peek(struct stream* s) {
-    if (s->length <= 0) return '\0';
+    if(s->length <= 0) return '\0';
     return *(s->pos);
+}
+
+int strm_peek_n(struct stream* s, int n, char* buffer) {
+    if(n > s->length) n = s->length;
+    strncpy(buffer, s->pos, n);
+    buffer[n] = '\0';
+    return n;   
 }
 
 void skip_whitespace(struct stream* s) {
