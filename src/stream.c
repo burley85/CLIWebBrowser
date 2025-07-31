@@ -19,13 +19,27 @@ struct stream* init_stream(char* data) {
         errorf("Failed to allocate memory for stream\n");
         return NULL;
     }
-    
-    s->start = data;
-    s->pos = data;
+
+    s->start = malloc(strlen(data) + 1);
+    if (!s->start) {
+        errorf("Failed to allocate memory for stream data\n");
+        free(s);
+        return NULL;
+    }
+    strcpy(s->start, data);
+    s->start[strlen(data)] = '\0';
+
+    s->pos = s->start;
     s->full_length = strlen(data);
     s->length = s->full_length;
 
     return s;
+}
+
+int delete_stream(struct stream* s) {
+    free(s->start);
+    free(s);
+    return 1;
 }
 
 unsigned int strm_pos(struct stream* s) {
@@ -138,7 +152,10 @@ char* strm_get_word(struct stream* s) {
     while(c && !isspace(c)){
         c = strm_next(s);
     }
-    if(c) s->pos--;
+    if(c){
+        s->pos--;
+        s->length++;
+    }
 
     unsigned int word_length = s->pos - start;
     if (word_length == 0) return NULL;
@@ -151,4 +168,27 @@ char* strm_get_word(struct stream* s) {
     strncpy(word, start, word_length);
     word[word_length] = '\0';
     return word;
+}
+
+int strm_copy(struct stream* s, char* dest, unsigned int n) {
+    if (n > s->length) n = s->length;
+    strncpy(dest, s->pos, n);
+    s->pos += n;
+    s->length -= n;
+    return n;
+}
+
+char* strm_remaining(struct stream* s) {
+    char* remaining = malloc(s->length + 1);
+    if (!remaining) {
+        errorf("Failed to allocate memory for remaining stream data\n");
+        return NULL;
+    }
+    strncpy(remaining, s->pos, s->length);
+    remaining[s->length] = '\0';
+
+    s->pos += s->length;
+    s->length = 0;
+
+    return remaining;
 }
