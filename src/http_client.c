@@ -30,6 +30,14 @@ struct addrinfo* get_server_address(char *url) {
 
     struct addrinfo *result = NULL;
 
+    char url_copy[MAX_URL_LENGTH + 1] = {0};
+    if (strlen(url) > MAX_URL_LENGTH) {
+        errorf("URL exceeds maximum length\n");
+        return NULL;
+    }
+    strncpy(url_copy, url, MAX_URL_LENGTH);
+    url = url_copy;
+
     char* path = strchr(url, '/');
     if (path) *path = '\0';
 
@@ -157,7 +165,6 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
         delete_stream(strm);
         return NULL;
     }
-    if(strm_invalid(strm)) errorf("strm_invalid: %d\n", strm_invalid(strm));
 
     while(1){
         strm_skip_thru(strm, "\r\n\r\n");
@@ -175,8 +182,9 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
         unsigned int chunk_size = hex_str_to_int(chunk_size_str, strlen(chunk_size_str));
         free(chunk_size_str);
 
-
         if (chunk_size == 0) break;
+
+        strm_skip_thru(strm, "\r\n");
 
         int bytes_read = strm_copy(strm, file_data + *file_size, chunk_size);
         if (bytes_read != chunk_size) {
@@ -191,7 +199,6 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
     
     if (strm_length(strm) > 0) {
         errorf("Unexpected data (%d bytes) after last chunk: %s\n", strm_length(strm), strm_remaining(strm));
-        if(strm_invalid(strm)) errorf("strm_invalid: %d\n", strm_invalid(strm));
         free(file_data);
         delete_stream(strm);
         return NULL;
