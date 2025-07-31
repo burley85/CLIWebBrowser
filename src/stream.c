@@ -9,8 +9,8 @@
 struct stream {
     char* start;
     char* pos;
-    int full_length;
-    int length;
+    unsigned int full_length;
+    unsigned int length;
 };
 
 struct stream* init_stream(char* data) {
@@ -28,7 +28,23 @@ struct stream* init_stream(char* data) {
     return s;
 }
 
-int strm_length(struct stream* s) {
+unsigned int strm_pos(struct stream* s) {
+    return (unsigned int)(s->pos - s->start);
+}
+
+unsigned int strm_seek(struct stream* s, unsigned int offset) {
+    if (offset > s->full_length) {
+        errorf("Seek offset %u exceeds stream length %u\n", offset, s->full_length);
+        return 0;
+    }
+    
+    s->pos = s->start + offset;
+    s->length = s->full_length - offset;
+
+    return offset;
+}
+
+unsigned int strm_length(struct stream* s) {
     return s->length;
 }
 
@@ -37,7 +53,7 @@ char strm_peek(struct stream* s) {
     return *(s->pos);
 }
 
-int strm_peek_n(struct stream* s, int n, char* buffer) {
+unsigned int strm_peek_n(struct stream* s, unsigned int n, char* buffer) {
     if(n > s->length) n = s->length;
     strncpy(buffer, s->pos, n);
     buffer[n] = '\0';
@@ -54,7 +70,7 @@ void skip_whitespace(struct stream* s) {
 int strm_match(struct stream* s, char* match) {
     skip_whitespace(s);
 
-    int str_len = strlen(match);
+    unsigned int str_len = strlen(match);
 
     if(s->length >= str_len && !strncmp(s->pos, match, str_len)) {
         s->pos += str_len;
@@ -62,6 +78,14 @@ int strm_match(struct stream* s, char* match) {
         return 1;
     }
     return 0;
+}
+
+char strm_next(struct stream* s) {
+    if(s->length <= 0) return '\0';
+    char c = *(s->pos);
+    s->pos++;
+    s->length--;
+    return c;
 }
 
 int strm_expect(struct stream* s, char* expected, int log_level) { 
@@ -74,7 +98,7 @@ int strm_expect(struct stream* s, char* expected, int log_level) {
 int strm_skip_thru(struct stream* s, char* expected) {
     char* found = strstr(s->pos, expected);
     if (found) {
-        int offset = found - s->pos;
+        unsigned int offset = found - s->pos;
         s->pos += offset + strlen(expected);
         s->length -= offset + strlen(expected);
         return 1;
@@ -82,7 +106,7 @@ int strm_skip_thru(struct stream* s, char* expected) {
     return 0;
 }
 
-char* strm_skip_thru_any(struct stream* s, char** expected, int count) {
+char* strm_skip_thru_any(struct stream* s, char** expected, unsigned int count) {
     char* first_match_pos = NULL;
     int match_index = -1;
 
@@ -103,4 +127,28 @@ char* strm_skip_thru_any(struct stream* s, char** expected, int count) {
     }
 
     return NULL;
+}
+
+char* strm_get_word(struct stream* s) {
+    skip_whitespace(s);
+
+    char* start = s->pos;
+
+    char c = strm_next(s);
+    while(c && !isspace(c)){
+        c = strm_next(s);
+    }
+    if(c) s->pos--;
+
+    unsigned int word_length = s->pos - start;
+    if (word_length == 0) return NULL;
+
+    char* word = malloc(word_length + 1);
+    if (!word) {
+        errorf("Failed to allocate memory for word\n");
+        return NULL;
+    }
+    strncpy(word, start, word_length);
+    word[word_length] = '\0';
+    return word;
 }
