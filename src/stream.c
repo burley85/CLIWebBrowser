@@ -144,12 +144,11 @@ char* strm_skip_thru_any(struct stream* s, char** expected, unsigned int count) 
 }
 
 char* strm_get_word(struct stream* s) {
-    skip_whitespace(s);
-
+    if(!isalnum(strm_peek(s))) return NULL;
     char* start = s->pos;
 
     char c = strm_next(s);
-    while(c && !isspace(c)){
+    while(c && isalnum(c)) {
         c = strm_next(s);
     }
     if(c){
