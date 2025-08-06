@@ -4,10 +4,11 @@
 #include <ctype.h>
 
 #include "logger.h"
-#include "stream.h"
+#include "parse_html.h"
 
 struct parser{
-    struct stream* strm;
+    struct istream* in;
+    struct ostream* out;
     char** open_elements;
     unsigned int open_elements_count;
     unsigned int open_elements_capacity;
@@ -35,7 +36,13 @@ struct parser* init_parser(struct stream* strm) {
         return NULL;
     }
     
-    p->strm = strm;
+    p->in = strm;
+    p->out = init_ostream();
+    if (!p->out) {
+        errorf("Failed to initialize output stream\n");
+        free(p);
+        return NULL;
+    }
 
     int starting_size = 1;
 
@@ -138,7 +145,7 @@ int parser_close_element(struct parser* p, char* element) {
 }
 
 char* parser_next_element(struct parser* p) {
-    struct stream* s = p->strm;
+    struct stream* s = p->in;
     char* element = NULL;
 
     if(!strm_skip_thru(s, "<")) return NULL;
@@ -197,57 +204,36 @@ char* parser_next_element(struct parser* p) {
     return element;
 }
 
-char* html_to_text(struct stream* strm) {
+struct ostream* parse_html(struct stream* strm) {
     struct parser* p = init_parser(strm);
     if (!p) {
         errorf("Failed to initialize parser\n");
         return NULL;
     }
 
-    char* text = malloc(strm_length(strm) + 1);
-    int text_len = 0;
-    if (!text) {
-        errorf("Failed to allocate memory for text\n");
-        delete_parser(p);
-        return NULL;
-    }
-
     while(parser_next_element(p)){
         int was_space = 1;
         int newline = 1;
-        while(strm_peek(p->strm) != '\0' && strm_peek(p->strm) != '<'){
-            char c = strm_next(p->strm);
+        while(strm_peek(p->in) != '\0' && strm_peek(p->in) != '<'){
+            char c = strm_next(p->in);
             if(isspace(c)){
                 if (!was_space) {
-                    memcpy(text + text_len, " ", 1);
-                    text_len++;
+                    ostrm_write(p->out, " ", 1);
                     was_space = 1;
                 }
             }
             else {
                 if (newline) {
-                    memcpy(text + text_len, "\n", 1);
-                    text_len++;
+                    ostrm_write(p->out, "\n", 1);
                     newline = 0;
                 }
-                memcpy(text + text_len, &c, 1);
-                text_len++;
+                ostrm_write(p->out, &c, 1);
                 was_space = 0;
             }
         }
     }
 
-    //Reallocate
-    char* new_text = realloc(text, text_len + 1);
-    if (!new_text) {
-        errorf("Failed to reallocate memory for text\n");
-        free(text);
-        delete_parser(p);
-        return NULL;
-    }
-    text = new_text;
-    text[text_len] = '\0';
-
+    struct ostream* text = ostrm_copy(p->out);
     delete_parser(p);
 
     return text;

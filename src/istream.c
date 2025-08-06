@@ -4,17 +4,17 @@
 #include <stdlib.h>
 
 #include "logger.h"
-#include "stream.h"
+#include "istream.h"
 
-struct stream {
+struct istream {
     char* start;
     char* pos;
     unsigned int full_length;
     unsigned int length;
 };
 
-struct stream* init_stream(char* data) {
-    struct stream* s = malloc(sizeof(struct stream));
+struct istream* init_stream(char* data) {
+    struct istream* s = malloc(sizeof(struct istream));
     if (!s) {
         errorf("Failed to allocate memory for stream\n");
         return NULL;
@@ -36,17 +36,37 @@ struct stream* init_stream(char* data) {
     return s;
 }
 
-int delete_stream(struct stream* s) {
+int delete_stream(struct istream* s) {
     free(s->start);
     free(s);
     return 1;
 }
 
-unsigned int strm_pos(struct stream* s) {
+int istrm_invalid(struct istream* s) {
+    if(!s) return -1;
+
+    if(!s->start) return -2;
+    if(s->start > s->pos) return -3;
+    
+
+    if(!s->pos) return -4;
+    if(s->pos < s->start) return -5;
+    if(s->pos > s->start + s->full_length) return -6;
+
+    if(s->full_length < s->length) return -7;
+    if(s->full_length != strlen(s->start)) return -8;
+
+    if(s->length != strlen(s->pos)) return -9;
+    if(s->length != s->full_length - (s->pos - s->start)) return -10;
+
+    return 0;
+}
+
+unsigned int istrm_pos(struct istream* s) {
     return (unsigned int)(s->pos - s->start);
 }
 
-unsigned int strm_seek(struct stream* s, unsigned int offset) {
+unsigned int istrm_seek(struct istream* s, unsigned int offset) {
     if (offset > s->full_length) {
         errorf("Seek offset %u exceeds stream length %u\n", offset, s->full_length);
         return 0;
@@ -58,30 +78,30 @@ unsigned int strm_seek(struct stream* s, unsigned int offset) {
     return offset;
 }
 
-unsigned int strm_length(struct stream* s) {
+unsigned int istrm_length(struct istream* s) {
     return s->length;
 }
 
-char strm_peek(struct stream* s) {
+char istrm_peek(struct istream* s) {
     if(s->length <= 0) return '\0';
     return *(s->pos);
 }
 
-unsigned int strm_peek_n(struct stream* s, unsigned int n, char* buffer) {
+unsigned int istrm_peek_n(struct istream* s, unsigned int n, char* buffer) {
     if(n > s->length) n = s->length;
     strncpy(buffer, s->pos, n);
     buffer[n] = '\0';
     return n;   
 }
 
-void skip_whitespace(struct stream* s) {
-    while(isspace(strm_peek(s)) && s->length > 0) {
+void skip_whitespace(struct istream* s) {
+    while(isspace(istrm_peek(s)) && s->length > 0) {
         s->pos++;
         s->length--;
     }
 }
 
-int strm_match(struct stream* s, char* match) {
+int istrm_match(struct istream* s, char* match) {
     skip_whitespace(s);
 
     unsigned int str_len = strlen(match);
@@ -94,7 +114,7 @@ int strm_match(struct stream* s, char* match) {
     return 0;
 }
 
-char strm_next(struct stream* s) {
+char istrm_next(struct istream* s) {
     if(s->length <= 0) return '\0';
     char c = *(s->pos);
     s->pos++;
@@ -102,14 +122,14 @@ char strm_next(struct stream* s) {
     return c;
 }
 
-int strm_expect(struct stream* s, char* expected, int log_level) { 
-    if(strm_match(s, expected)) return 1;
+int istrm_expect(struct istream* s, char* expected, int log_level) { 
+    if(istrm_match(s, expected)) return 1;
     else
         logmsgf(log_level, "Expected '%s' but found '%.*s'\n", expected, strlen(expected), s->pos);
     return 0;
 }
 
-int strm_skip_thru(struct stream* s, char* expected) {
+int istrm_skip_thru(struct istream* s, char* expected) {
     char* found = strstr(s->pos, expected);
     if (found) {
         unsigned int offset = found - s->pos;
@@ -120,7 +140,7 @@ int strm_skip_thru(struct stream* s, char* expected) {
     return 0;
 }
 
-char* strm_skip_thru_any(struct stream* s, char** expected, unsigned int count) {
+char* istrm_skip_thru_any(struct istream* s, char** expected, unsigned int count) {
     char* first_match_pos = NULL;
     int match_index = -1;
 
@@ -143,13 +163,13 @@ char* strm_skip_thru_any(struct stream* s, char** expected, unsigned int count) 
     return NULL;
 }
 
-char* strm_get_word(struct stream* s) {
-    if(!isalnum(strm_peek(s))) return NULL;
+char* istrm_get_word(struct istream* s) {
+    if(!isalnum(istrm_peek(s))) return NULL;
     char* start = s->pos;
 
-    char c = strm_next(s);
+    char c = istrm_next(s);
     while(c && isalnum(c)) {
-        c = strm_next(s);
+        c = istrm_next(s);
     }
     if(c){
         s->pos--;
@@ -169,7 +189,7 @@ char* strm_get_word(struct stream* s) {
     return word;
 }
 
-int strm_copy(struct stream* s, char* dest, unsigned int n) {
+int istrm_copy(struct istream* s, char* dest, unsigned int n) {
     if (n > s->length) n = s->length;
     strncpy(dest, s->pos, n);
     s->pos += n;
@@ -177,7 +197,7 @@ int strm_copy(struct stream* s, char* dest, unsigned int n) {
     return n;
 }
 
-char* strm_remaining(struct stream* s) {
+char* istrm_remaining(struct istream* s) {
     char* remaining = malloc(s->length + 1);
     if (!remaining) {
         errorf("Failed to allocate memory for remaining stream data\n");

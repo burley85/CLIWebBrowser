@@ -4,7 +4,7 @@
 #include <wspiapi.h>
 
 #include "logger.h"
-#include "stream.h"
+#include "istream.h"
 #include "http_client.h"
 
 int init_http_client() {
@@ -152,7 +152,7 @@ char* buffer_response(SOCKET s, int* buffer_size) {
 //Repeat until chunk size is 0
 //Return file data
 char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* file_size) {
-    struct stream* strm = init_stream(response);
+    struct istream* strm = init_stream(response);
     if (!strm) {
         errorf("Failed to initialize stream\n");
         return NULL;
@@ -167,11 +167,11 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
     }
 
     while(1){
-        strm_skip_thru(strm, "\r\n\r\n");
-        if(strm_length(strm) <= 0) break;
+        istrm_skip_thru(strm, "\r\n\r\n");
+        if(istrm_length(strm) <= 0) break;
 
 
-        char* chunk_size_str = strm_get_word(strm);
+        char* chunk_size_str = istrm_get_word(strm);
 
         if (!chunk_size_str) {
             errorf("Failed to read chunk size\n");
@@ -184,9 +184,9 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
 
         if (chunk_size == 0) break;
 
-        strm_skip_thru(strm, "\r\n");
+        istrm_skip_thru(strm, "\r\n");
 
-        int bytes_read = strm_copy(strm, file_data + *file_size, chunk_size);
+        int bytes_read = istrm_copy(strm, file_data + *file_size, chunk_size);
         if (bytes_read != chunk_size) {
             errorf("Failed to read complete chunk, expected %u bytes, got %d bytes\n", chunk_size, bytes_read);
             free(file_data);
@@ -195,10 +195,10 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
         }
         *file_size += bytes_read;
     }
-    strm_skip_thru(strm, "\r\n");
+    istrm_skip_thru(strm, "\r\n");
     
-    if (strm_length(strm) > 0) {
-        errorf("Unexpected data (%d bytes) after last chunk: %s\n", strm_length(strm), strm_remaining(strm));
+    if (istrm_length(strm) > 0) {
+        errorf("Unexpected data (%d bytes) after last chunk: %s\n", istrm_length(strm), istrm_remaining(strm));
         free(file_data);
         delete_stream(strm);
         return NULL;
