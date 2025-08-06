@@ -40,7 +40,7 @@ int delete_ostream(struct ostream* s) {
     return 1;
 }
 
-int ostream_write(struct ostream* s, char* data, unsigned int length) {
+int ostrm_write(struct ostream* s, char* data, unsigned int length) {
     if (s->length + length > s->allocated - 1) {
         s->allocated *= 2;
         char* new_buffer = realloc(s->start, s->allocated);

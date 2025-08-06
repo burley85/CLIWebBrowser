@@ -5,6 +5,8 @@
 
 #include "logger.h"
 #include "parse_html.h"
+#include "istream.h"
+#include "ostream.h"
 
 struct parser{
     struct istream* in;
@@ -29,7 +31,7 @@ void parser_print_open_elements(struct parser* p) {
     }
 }
 
-struct parser* init_parser(struct stream* strm) {
+struct parser* init_parser(struct istream* strm) {
     struct parser* p = malloc(sizeof(struct parser));
     if (!p) {
         errorf("Failed to allocate memory for parser\n");
@@ -145,31 +147,31 @@ int parser_close_element(struct parser* p, char* element) {
 }
 
 char* parser_next_element(struct parser* p) {
-    struct stream* s = p->in;
+    struct istream* s = p->in;
     char* element = NULL;
 
-    if(!strm_skip_thru(s, "<")) return NULL;
+    if(!istrm_skip_thru(s, "<")) return NULL;
 
-    while(strm_peek(s) == '!'){
-        if(!strm_match(s, "!--")){
-            if(!strm_skip_thru(s, ">")) return NULL;
+    while(istrm_peek(s) == '!'){
+        if(!istrm_match(s, "!--")){
+            if(!istrm_skip_thru(s, ">")) return NULL;
         }
         else {
-            if(!strm_skip_thru(s, "-->")) return NULL;
+            if(!istrm_skip_thru(s, "-->")) return NULL;
         }
 
-        if(!strm_skip_thru(s, "<")) return NULL;
+        if(!istrm_skip_thru(s, "<")) return NULL;
     }
 
-    if(strm_peek(s) == '/') {
-        strm_next(s); // Skip '/'
-        element = strm_get_word(s);
+    if(istrm_peek(s) == '/') {
+        istrm_next(s); // Skip '/'
+        element = istrm_get_word(s);
         if (!element) {
             errorf("Failed to read closing element\n");
             return NULL;
         }
 
-        if(!strm_skip_thru(s, ">")){
+        if(!istrm_skip_thru(s, ">")){
             errorf("Failed to read closing element\n");
             free(element);
             return NULL;
@@ -183,13 +185,13 @@ char* parser_next_element(struct parser* p) {
     }
 
     else {
-        element = strm_get_word(s);
+        element = istrm_get_word(s);
         if (!element) {
             errorf("Failed to read opening element\n");
             return NULL;
         }
 
-        if(!strm_skip_thru(s, ">")){
+        if(!istrm_skip_thru(s, ">")){
             errorf("Failed to read opening element\n");
             free(element);
             return NULL;
@@ -204,7 +206,7 @@ char* parser_next_element(struct parser* p) {
     return element;
 }
 
-struct ostream* parse_html(struct stream* strm) {
+struct ostream* parse_html(struct istream* strm) {
     struct parser* p = init_parser(strm);
     if (!p) {
         errorf("Failed to initialize parser\n");
@@ -214,8 +216,8 @@ struct ostream* parse_html(struct stream* strm) {
     while(parser_next_element(p)){
         int was_space = 1;
         int newline = 1;
-        while(strm_peek(p->in) != '\0' && strm_peek(p->in) != '<'){
-            char c = strm_next(p->in);
+        while(istrm_peek(p->in) != '\0' && istrm_peek(p->in) != '<'){
+            char c = istrm_next(p->in);
             if(isspace(c)){
                 if (!was_space) {
                     ostrm_write(p->out, " ", 1);
