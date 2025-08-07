@@ -4,6 +4,8 @@
 #include "istream.h"
 #include "ostream.h"
 
-struct ostream* parse_html(struct istream* strm);
+struct parser;
+
+struct ostream* parse_html(struct parser* p, struct istream* strm);
 
 #endif // PARSE_HTML_H

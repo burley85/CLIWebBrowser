@@ -162,7 +162,7 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
     *file_size = 0;
     if (!file_data) {
         errorf("Failed to allocate memory for file data\n");
-        delete_stream(strm);
+        delete_istream(strm);
         return NULL;
     }
 
@@ -176,7 +176,7 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
         if (!chunk_size_str) {
             errorf("Failed to read chunk size\n");
             free(file_data);
-            delete_stream(strm);
+            delete_istream(strm);
             return NULL;
         }
         unsigned int chunk_size = hex_str_to_int(chunk_size_str, strlen(chunk_size_str));
@@ -190,7 +190,7 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
         if (bytes_read != chunk_size) {
             errorf("Failed to read complete chunk, expected %u bytes, got %d bytes\n", chunk_size, bytes_read);
             free(file_data);
-            delete_stream(strm);
+            delete_istream(strm);
             return NULL;
         }
         *file_size += bytes_read;
@@ -200,7 +200,7 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
     if (istrm_length(strm) > 0) {
         errorf("Unexpected data (%d bytes) after last chunk: %s\n", istrm_length(strm), istrm_remaining(strm));
         free(file_data);
-        delete_stream(strm);
+        delete_istream(strm);
         return NULL;
     }
 
@@ -208,11 +208,11 @@ char* chunked_transfer(SOCKET s, char* response, int buffer_size, unsigned int* 
     if (!final_data) {
         errorf("Failed to reallocate memory for final file data\n");
         free(file_data);
-        delete_stream(strm);
+        delete_istream(strm);
         return NULL;
     }
 
-    delete_stream(strm);
+    delete_istream(strm);
     return final_data;
 }
 

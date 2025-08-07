@@ -36,7 +36,7 @@ struct istream* init_stream(char* data) {
     return s;
 }
 
-int delete_stream(struct istream* s) {
+int delete_istream(struct istream* s) {
     free(s->start);
     free(s);
     return 1;
@@ -94,7 +94,7 @@ unsigned int istrm_peek_n(struct istream* s, unsigned int n, char* buffer) {
     return n;   
 }
 
-void skip_whitespace(struct istream* s) {
+void istrm_skip_whitespace(struct istream* s) {
     while(isspace(istrm_peek(s)) && s->length > 0) {
         s->pos++;
         s->length--;
@@ -102,8 +102,6 @@ void skip_whitespace(struct istream* s) {
 }
 
 int istrm_match(struct istream* s, char* match) {
-    skip_whitespace(s);
-
     unsigned int str_len = strlen(match);
 
     if(s->length >= str_len && !strncmp(s->pos, match, str_len)) {
@@ -137,6 +135,7 @@ int istrm_skip_thru(struct istream* s, char* expected) {
         s->length -= offset + strlen(expected);
         return 1;
     }
+    s->pos += s->length;
     return 0;
 }
 
@@ -160,6 +159,7 @@ char* istrm_skip_thru_any(struct istream* s, char** expected, unsigned int count
         return expected[match_index];
     }
 
+    s->pos += s->length;
     return NULL;
 }
 

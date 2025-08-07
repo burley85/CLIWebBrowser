@@ -49,6 +49,7 @@ int ostrm_write(struct ostream* s, char* data, unsigned int length) {
             return 0;
         }
         s->start = new_buffer;
+        s->pos = s->start + s->length;
         memset(s->start + s->length, 0, s->allocated - s->length);
     }
 
@@ -83,4 +84,8 @@ struct ostream* ostrm_copy(struct ostream* old){
     new->length = old->length;
     new->allocated = starting_size;
     return new;
+}
+
+char* ostrm_to_string(struct ostream* s) {
+    return s->start;
 }

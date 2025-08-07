@@ -61,13 +61,16 @@ struct parser* init_parser(struct istream* strm) {
     return p;
 }
 
-void delete_parser(struct parser* p) {
+void delete_parser(struct parser* p, int free_in, int free_out) {
     if (!p) return;
     for (unsigned int i = 0; i < p->open_elements_count; i++) {
         free(p->open_elements[i]);
     }
     free(p->open_elements);
     free(p);
+
+    if (free_in) delete_istream(p->in);
+    if (free_out) delete_ostream(p->out);
 }
 
 int parser_open_element(struct parser* p, char* element) {
@@ -146,58 +149,72 @@ int parser_close_element(struct parser* p, char* element) {
     return 1;    
 }
 
-char* parser_next_element(struct parser* p) {
-    struct istream* s = p->in;
-    char* element = NULL;
-
-    if(!istrm_skip_thru(s, "<")) return NULL;
-
-    while(istrm_peek(s) == '!'){
-        if(!istrm_match(s, "!--")){
-            if(!istrm_skip_thru(s, ">")) return NULL;
+int parser_skip_comments(struct parser* p) {
+    char buffer[5];
+    int comments = 0;
+    while(1) {
+        istrm_skip_whitespace(p->in);
+        istrm_peek_n(p->in, 4, buffer);
+        if(buffer[0] == '<' && buffer[1] == '!'){
+            comments++;
+            if(buffer[2] == '-' && buffer[3] == '-') istrm_skip_thru(p->in, "-->");
+            else istrm_skip_thru(p->in, ">");
         }
-        else {
-            if(!istrm_skip_thru(s, "-->")) return NULL;
-        }
-
-        if(!istrm_skip_thru(s, "<")) return NULL;
+        else return comments;
     }
+}
+
+int parser_skip_to_tag(struct parser* p) {
+    while(1) {
+        if(!istrm_skip_thru(p->in, "<")) return 0;
+
+        if(istrm_peek(p->in) == '!'){
+            istrm_seek(p->in, istrm_pos(p->in) - 1);
+            parser_skip_comments(p);
+        }
+        else{
+            istrm_seek(p->in, istrm_pos(p->in) - 1);
+            return 1;
+        }
+    }
+}
+
+char* parser_next_element(struct parser* p, int* closing_tag) {
+    struct istream* s = p->in;
+    int is_closing = 0;
+    if(closing_tag == NULL) closing_tag = &is_closing;
+    *closing_tag = 0;
+
+    if(!parser_skip_to_tag(p)) return NULL;
+
+    istrm_expect(s, "<", LOG_ERROR);
 
     if(istrm_peek(s) == '/') {
         istrm_next(s); // Skip '/'
-        element = istrm_get_word(s);
-        if (!element) {
-            errorf("Failed to read closing element\n");
-            return NULL;
-        }
+        *closing_tag = 1;
+    }
 
-        if(!istrm_skip_thru(s, ">")){
-            errorf("Failed to read closing element\n");
-            free(element);
-            return NULL;
-        }
-        
-        if (!parser_close_element(p, element)) {
+    char* element = istrm_get_word(s);
+    if (!element) {
+        errorf("Failed to read element\n");
+        return NULL;
+    }
+
+    if(!istrm_skip_thru(s, ">")){
+        warningf("Failed to find end of tag\n");
+        free(element);
+        return NULL;
+    } 
+    
+    if(*closing_tag) {
+        if(!parser_close_element(p, element)) {
             errorf("Failed to close element: %s\n", element);
             free(element);
             return NULL;
         }
     }
-
     else {
-        element = istrm_get_word(s);
-        if (!element) {
-            errorf("Failed to read opening element\n");
-            return NULL;
-        }
-
-        if(!istrm_skip_thru(s, ">")){
-            errorf("Failed to read opening element\n");
-            free(element);
-            return NULL;
-        }
-
-        if (!parser_open_element(p, element)) {
+        if(!parser_open_element(p, element)) {
             errorf("Failed to open element: %s\n", element);
             free(element);
             return NULL;
@@ -206,14 +223,32 @@ char* parser_next_element(struct parser* p) {
     return element;
 }
 
-struct ostream* parse_html(struct istream* strm) {
-    struct parser* p = init_parser(strm);
-    if (!p) {
-        errorf("Failed to initialize parser\n");
+struct ostream* parse_html(struct parser* p, struct istream* strm) {
+    int free_parser = 0;
+
+    if(!strm){
+        if(!p){
+            errorf("No parser or stream provided\n");
+            return NULL;
+        }
+        strm = p->in;
+    }
+    
+    else if(!p){
+        p = init_parser(strm);
+        if(!p){
+            errorf("Failed to initialize parser\n");
+            return NULL;
+        }
+        free_parser = 1;
+    }
+
+    else if(p->in != strm) {
+        errorf("Parser is already initialized with a different stream\n");
         return NULL;
     }
 
-    while(parser_next_element(p)){
+    while(parser_next_element(p, NULL)){
         int was_space = 1;
         int newline = 1;
         while(istrm_peek(p->in) != '\0' && istrm_peek(p->in) != '<'){
@@ -235,8 +270,7 @@ struct ostream* parse_html(struct istream* strm) {
         }
     }
 
-    struct ostream* text = ostrm_copy(p->out);
-    delete_parser(p);
-
-    return text;
+    struct ostream* out = p->out;
+    if(free_parser) delete_parser(p, 0, 0);
+    return out;
 }
